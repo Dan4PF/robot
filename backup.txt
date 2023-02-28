@@ -1,0 +1,161 @@
+@client.event
+async def on_connect():
+  arrayOfStatus = [
+    ('Hanime Heaven💕',
+     'https://www.youtube.com/watch?v=KsWmq4lpxxk&list=RDKsWmq4lpxxk&start_radio=1'
+     ),
+    ('Hanime utility bot', 'https://www.youtube.com/watch?v=dldyNVhjTTI'),
+    ('Fuck Gays 🖕', 'https://www.youtube.com/watch?v=fYRIBocQoq8'),
+    ('Im not human LLJ🕊️',
+     'https://www.youtube.com/watch?v=gDJn6lbTqWM&list=RDgDJn6lbTqWM&start_radio=1'
+     ),
+    ('Let me know', 'https://www.youtube.com/watch?v=swDam6Hrsm8'),
+    ('Raping multiple women rn',
+     'https://www.youtube.com/watch?v=l3vQ0pczKnE'),
+    ('Fucking these hoes', 'https://www.youtube.com/watch?v=ky3Yfn_S_fY'),
+    ('Made for H20', 'https://www.youtube.com/watch?v=fYRIBocQoq8'),
+  ]
+
+  async def change_status():
+    await client.wait_until_ready()
+    index = 0
+    while not client.is_closed():
+      status, url = arrayOfStatus[index]
+      await client.change_presence(
+        activity=discord.Streaming(name=status, url=url))
+      await asyncio.sleep(18)
+      index += 1
+      if index == len(arrayOfStatus):
+        index = 0
+
+  client.loop.create_task(change_status())
+  try:
+    synced = await client.tree.sync()
+    print(f"Synced {len(synced)} commands(s)")
+  except Exception as e:
+    print(e)
+
+
+@client.tree.command(name='user_banner', description='gives user bannerr!')
+@app_commands.describe(user='Select a user')
+async def banner(interaction: discord.Interaction, user: discord.Member):
+    user = interaction.author if not user else user
+    req = await client.http.request(discord.http.Route("GET", "/users/{uid}", uid=user.id))
+    banner_id = req["banner"]
+    if banner_id:
+        banner_url = f"https://cdn.discordapp.com/banners/{user.id}/{banner_id}?size=1024"
+        embed = discord.Embed(title='Hanime banner', description=f"{user} banner🌺", color=0xFF0187)
+        embed.set_image(url=banner_url)
+        await interaction.response.send_message(embed=embed)
+
+@client.event
+async def on_connect():
+    global synced
+    if not synced:
+        await client.change_presence(activity=discord.Streaming(name="Hanime Heaven💕", url="https://www.twitch.tv/hanimeheaven"), status=discord.Status.online)
+        try:
+            synced = True
+            synced_commands = await client.tree.sync()
+            print(f"Synced {len(synced_commands)} command(s)")
+            
+            # Set the Discord client's browser status to "Discord Android"
+            discord.Constants.DefaultOptions.ws.properties["$browser"] = "Discord Android"
+            await client.change_presence(activity=discord.Game(name="Hanime Heaven💕"))
+            
+        except Exception as e:
+            print(e)
+    else:
+        print("Bot is already synced.")
+
+
+intents = discord.Intents.all()
+intents.messages = True
+client = commands.AutoShardedBot(shard_count=15, command_prefix="*", intents=intents)
+client.remove_command('help')
+
+
+RATE_LIMIT = 1
+RATE_PERIOD = 5  # seconds
+
+# Change this list to include the Discord IDs of users who are exempt from the rate-limiting
+WHITELIST = [762464676344102932]
+
+def rate_limit():
+    # A decorator that enforces a rate-limit on bot commands
+    def decorator(func):
+        # Keep track of the last time a command was executed
+        last_executed = {}
+
+        @wraps(func)
+        async def wrapper(ctx, *args, **kwargs):
+            now = time.monotonic()
+            user_id = ctx.author.id
+
+            # If the user is whitelisted, allow them to bypass the rate-limit
+            if user_id in WHITELIST:
+                return await func(ctx, *args, **kwargs)
+
+            # Check if the user has executed this command too frequently
+            if user_id in last_executed:
+                delta = now - last_executed[user_id]
+                if delta < RATE_PERIOD:
+                    remaining = RATE_PERIOD - delta
+                    return await ctx.send(f"You're sending too many commands too quickly. Please wait {remaining:.1f} seconds and try again.")
+
+            # Execute the command and update the last-executed time
+            await func(ctx, *args, **kwargs)
+            last_executed[user_id] = now
+
+        return wrapper
+
+    return decorator
+
+
+commands_synced = False
+
+@client.event
+async def on_connect():
+    global commands_synced
+    if not commands_synced:
+        try:
+            synced = await client.tree.sync()
+            print(f"Synced {len(synced)} commands(s)")
+            commands_synced = True
+        except Exception as e:
+            print(e)
+            commands_synced = False
+    
+    arrayOfStatus = [
+        ('Hanime Heaven💕', 'https://www.youtube.com/watch?v=KsWmq4lpxxk&list=RDKsWmq4lpxxk&start_radio=1')
+    ]
+
+    async def change_status():
+        await client.wait_until_ready()
+        index = 0
+        while not client.is_closed():
+            status, url = arrayOfStatus[index]
+            await client.change_presence(activity=discord.Streaming(name=status, url=url))
+            index += 1
+            if index == len(arrayOfStatus):
+                index = 0
+
+    status_task = client.loop.create_task(change_status())
+
+
+@client.command(name='sp', help='Spotify song')
+async def spotify(ctx):
+    for activity in ctx.author.activities:
+        if isinstance(activity, Spotify):
+            embed = discord.Embed(title=f"{ctx.author.name}'s Spotify", description="Listening to {}".format(activity.title), color=activity.color)
+            embed.set_thumbnail(url=activity.album_cover_url)
+            embed.add_field(name="Artist", value=activity.artist)
+            embed.add_field(name="Album", value=activity.album)
+            duration_ms = round(activity.duration.total_seconds() * 1000)
+            duration = str(timedelta(milliseconds=duration_ms)).split(".")[0]
+            embed.add_field(name="Duration", value=duration)
+            embed.add_field(name="Song Link", value=f"[{activity.title}](https://open.spotify.com/track/{activity.track_id})")
+            embed.set_footer(text="Spotify", icon_url="https://cdn.discordapp.com/emojis/1078862794050510939.webp?size=80&quality=lossless")
+            await ctx.send(embed=embed)
+            break
+    else:
+        await ctx.send(f"{ctx.author.name} is not listening to Spotify.")
